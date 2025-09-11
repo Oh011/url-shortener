@@ -11,7 +11,7 @@ A URL shortening system built with ASP.NET Core, using Clean Architecture and CQ
 - System design includes sharding & consistent hashing (documented, not fully implemented)
 
 ## 📐 System Design
-![System Design](images/UrlShortener_HLD.drawio)
+![System Design](images/UrlShortener_HLD.drawio.png)
 
 Includes:
 - Capacity estimation
