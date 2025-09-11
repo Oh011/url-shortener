@@ -71,7 +71,7 @@ Each record ≈ 200 bytes (including indexing).
 
 ### 5. Sequence Diagrams  
 - Shortening a URL (Write Path)  
-![Sequence - Shorten](images/UrlShortener_SequenceDigram(Post).drawio (1).png)  
+![Sequence - Shorten](images/UrlShortener_SequenceDigram(Post).drawio.png)  
 
 - Redirecting a URL (Read Path)  
 ![Sequence - Redirect](images/UrlShortener_SequenceDigram(Get).drawio.png)  
