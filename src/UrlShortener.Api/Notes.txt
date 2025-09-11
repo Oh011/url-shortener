@@ -1,0 +1,658 @@
+﻿
+AppDB (central DB) → stable data, low volume, strong consistency needed.
+
+ShardDBs (with consistent hashing) → high-volume, partitionable data.
+
+📌 Final Tables for Your URL Shortener
+1. AppDB (central DB)
+
+Handles auth & user accounts.
+This is standard ASP.NET Core Identity.
+
+AspNetUsers (from Identity)
+
+AspNetRoles, AspNetUserRoles, etc. (Identity defaults)
+
+👉 You don’t need to design these manually, Identity scaffolds them.
+
+
+
+2. Sharded DBs (Url Data & Analytics)
+(a) Urls (main table, sharded)
+Urls
+-----
+Id (PK, bigint identity)
+ShortCode (varchar(10), unique)     -- "abc123"
+OriginalUrl (nvarchar(max))
+ClickCount (bigint, default 0)      -- total clicks
+UserId (nvarchar(450), nullable)    -- FK not enforced (from AspNetUsers)
+CreatedAt (datetime2)
+ExpiresAt (datetime2, nullable)     -- optional feature
+
+(b) UrlAccessLogs (optional analytics, also sharded)
+UrlAccessLogs
+--------------
+Id (PK, bigint identity)
+UrlId (FK -> Urls.Id)
+AccessedAt (datetime2)
+IpAddress (varchar(45))             -- IPv6 ready
+UserAgent (nvarchar(256))           -- browser/device
+Referrer (nvarchar(512), nullable)  -- optional
+
+
+
+3. (Optional) User Statistics Table
+
+If you want dashboards with quick lookups (not required for MVP).
+
+UserStatistics
+---------------
+UserId (PK, nvarchar(450))
+TotalUrls (int)
+TotalClicks (bigint)
+LastActiveAt (datetime2)
+------------------------------------------------------------------------------
+
+
+| Endpoint                      | Method | Purpose                                   | Returns                                    |
+| ----------------------------- | ------ | ----------------------------------------- | ------------------------------------------ |
+| `/api/analytics/user/summary` | GET    | Quick overview for the authenticated user | `{ TotalUrls, TotalClicks, LastActiveAt }` |
+
+
+
+| Endpoint                                | Method | Purpose                           | Returns                                                                           |
+| --------------------------------------- | ------ | --------------------------------- | --------------------------------------------------------------------------------- |
+| `/api/analytics/urls`                   | GET    | Paginated list of all user URLs   | `[UserUrlDto]` `{ ShortUrl, OriginalUrl, ClickCount, ExpiresAt, LastAccessedAt }` |
+| `/api/analytics/urls/{shortUrl}/clicks` | GET    | Total clicks for a specific URL   | `int`                                                                             |
+| `/api/analytics/urls/{shortUrl}/stats`  | GET    | Full stats for a URL              | `{ ShortUrl, OriginalUrl, ClickCount, ExpiresAt, LastAccessedAt }`                |
+| `/api/analytics/urls/top`               | GET    | Top N URLs for the user by clicks | `[UserUrlDto]`                                                                    |
+| `/api/analytics/urls/{shortUrl}/logs`   | GET    | Paginated access logs for a URL   | `[UrlAccessLogDto]` `{ AccessedAt, IpAddress, UserAgent, Referrer }`              |
+
+Notes:
+
+/stats includes click count + optional metadata.
+/clicks is just a quick count (simpler).
+Pagination is recommended for /urls and /logs.
+
+
+
+| Endpoint                         | Method | Purpose                   | Returns                                                                  |
+| -------------------------------- | ------ | ------------------------- | ------------------------------------------------------------------------ |
+| `/api/admin/users/summary`       | GET    | List all users with stats | `[UserStatisticsDto]` `{ UserId, TotalUrls, TotalClicks, LastActiveAt }` |
+| `/api/admin/urls/top`            | GET    | Top URLs across all users | `[UrlDto]` `{ ShortUrl, OriginalUrl, ClickCount, UserId }`               |
+| `/api/admin/urls/active`         | GET    | All active URLs           | `[UrlDto]`                                                               |
+| `/api/admin/urls/expired`        | GET    | All expired URLs          | `[UrlDto]`                                                               |
+| `/api/admin/users/{userId}/urls` | GET    | URLs of a specific user   | `[UserUrlDto]`                                                           |
+
+
+AppDB (centralized)
+  ├── AspNetUsers
+  ├── AspNetRoles
+  ├── UserProfiles
+  ├── ApiKeys
+  ├── Plans (if you do premium/free accounts)
+  ├── GlobalSettings
+  └── AnalyticsSummary (optional roll-ups)
+
+UrlShard1
+  └── ShortUrls
+UrlShard2
+  └── ShortUrls
+UrlShard3
+  └── ShortUrls
+
+
+
+💡 Key takeaway:
+
+Design = consistent hashing (shows system design skills).
+Implementation = simple ID + shards simulation (makes the project feasible).
+
+
+
+CREATE SEQUENCE url_id_seq START 1;
+
+-- Get the next unique ID
+SELECT nextval('url_id_seq');
+
+
+
+Image = what to run (the definition).
+Container = the running instance (the execution of that definition).
+
+
+
+
+docker run -d \
+  --name shard1 \
+  -e POSTGRES_USER=admin \
+  -e POSTGRES_PASSWORD=admin \
+  -e POSTGRES_DB=urls \
+  -p 5433:5432 \
+  postgres:16
+
+
+docker run
+→ Start a new container from an image.
+
+-d (detached mode)
+→ Runs the container in the background (doesn’t block your terminal).
+
+--name shard1
+→ Assigns a custom name (shard1) to the container (instead of random hash).
+
+-e POSTGRES_USER=admin
+→ Sets an environment variable inside the container.
+PostgreSQL will create a user called admin.
+
+-e POSTGRES_PASSWORD=admin
+→ Sets the password for the admin user.
+(This is required, PostgreSQL won’t start without it.)
+
+-e POSTGRES_DB=urls
+→ Tells PostgreSQL to create a database named urls when the container starts for the first time.
+
+-p 5433:5432
+→ Maps a port from your host machine → container.
+
+Left side (5433) = port on your computer
+Right side (5432) = port inside the container (Postgres always listens on 5432 inside the container).
+
+This means you connect using localhost:5433.
+
+postgres:16
+→ The Docker image to use.
+This pulls and runs PostgreSQL version 16.
+
+
+------------------------------------------------------------------------------
+
+Command 2 : docker exec -it shard1 psql -U admin -d urls
+
+docker exec → Run a command inside a running container.
+-it → Interactive terminal (so you can type inside).
+shard1 → The name of your running container.
+psql → The PostgreSQL client program.
+-U admin → Connect as user admin.
+-d urls → Connect to database urls.
+
+
+
+-------------------------------------------------------------------------------------------
+
+
+Important Notes --> what learned :
+
+
+1. Install Microsoft.Extensions.Options.ConfigurationExtensions in Infrastructure : 
+
+--> So we can use configure options :
+: --> Services.Configure<List<ShardInfo>>(builder.Configuration.GetSection("Shards"));
+
+
+---------------------------------------------------------------------------------------------
+
+
+2. methods in Dependency Injcetion Container :
+
+classes that should be singletone :
+
+---> ShardManager should be Singleton
+1. It holds shard configuration (from appsettings.json).
+2. It builds a hash ring or selection logic once.
+3. This doesn’t change during runtime (unless you implement dynamic shard scaling).
+
+
+--> to initialize a scoped or singeltone service with a specific instance or factory :
+
+singletone :   services.AddSingleton<IShardManager>(new ShardManager(shards));
+
+Scoped :   services.AddScoped<IShardManager>(sp =>
+            {
+                var config = sp.GetRequiredService<IConfiguration>();
+                var shards = config.GetSection("Shards").Get<List<ShardInfo>>() ?? new();
+                return new ShardManager(shards);
+            });
+------------------------------------------------------------------------------------------------------
+
+
+3. UnitOfWork class and GenericRepository :
+
+fisrt option:  return (IGenericRepository<TEntity, TKey>)Repositories.GetOrAdd(typeof(TEntity).Name, 
+                    (string key) => new GenericRepository<TEntity, TKey>(_context));
+
+second Option :  return (IGenericRepository<TEntity, TKey>)Repositories.GetOrAdd(typeof(TEntity).FullName, 
+(string key) => new GenericRepository<TEntity, TKey>(_context));
+
+
+| Property   | Value Example                 | Notes                                     |
+| ---------- | ----------------------------- | ----------------------------------------- |
+| `Name`     | Product                       | Only the class name, might collide        |
+| `FullName` | MyApp.Domain.Entities.Product | Includes namespace, unique across project |
+
+Difference between : 
+GetOrAdd(key, value) and GetOrAdd(key, Factory):
+
+GetOrAdd(key, _ => new GenericRepository<TEntity, TKey>(_context) is a lambda factory.) :
+--> Creates value every time, discards if key exists
+
+GetOrAdd(key, new GenericRepository<TEntity, TKey>(_context)): Executes factory only if key missing
+--> Lazy initialization
+
+
+The factory is only executed if the key does not exist.
+
+-------------------------------------------------------------------------------------------------------------
+
+
+4. some importnat concepts in MediatR Library and its design patterns :
+
+Visualization:
+
+Client --> Mediator
+             |
+             v
+    ValidationBehavior
+             |
+             v
+     LoggingBehavior
+             |
+             v
+  AuthorizationBehavior
+             |
+             v
+      Handler.Handle()
+
+
+What design pattern is this?
+
+MediatR is primarily an implementation of the Mediator Pattern:
+
+1. Mediator Pattern: Encapsulates how objects interact so that objects don’t reference each other directly.
+2. Here, the _mediator is the central hub; commands/queries don’t know who handles them.
+3. Handlers don’t know who sent the command. This reduces coupling.
+
+
+What about IPipelineBehavior<TRequest, TResponse>?
+
+When you implement:
+
+public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+    where TRequest : notnull
+{
+    // ...
+}
+
+1. Pipeline behaviors are executed before and/or after the actual handler.
+2. MediatR executes behaviors in a chain (like a middleware pipeline).
+
+Example flow:
+[ValidationBehavior] -> [LoggingBehavior] -> [AuthorizationBehavior] -> [Handler]
+
+3. Each behavior can do something before calling next().
+4. Then it calls await next() to move to the next behavior or handler.
+5. Then it can do something after the handler returns.
+
+
+---------------------------------------------------------------------------------------------
+
+5. To use Hanfire : install-->
+dotnet add package Hangfire
+dotnet add package Hangfire.AspNetCore
+dotnet add package Hangfire.SqlServer
+
+
+-----------------------------------------------------------------------
+
+6. Important Digram to be used in GitHub Readme :
+
+[User Browser]
+      |
+      v
+[RedirectController]
+      |  HTTP GET /{shortCode}
+      v
+[ResolveShortUrlQuery Handler]
+      |-- Fetch URL from Shard DB
+      |-- Decode ID
+      |-- Publish UrlAccessedEvent via MediatR
+      v
+[UrlAccessedEventHandler]
+      |-- Enqueue Background Jobs in Hangfire
+      |      |--> IUserStatisticsService.IncrementTotalClicksAsync (if user logged in)
+      |      |--> IUrlAccessLogService.LogAccessAsync
+      v
+[Background Jobs Worker (Hangfire)]
+      |-- Fetch relevant shard for URL
+      |-- Increment Url.ClickCount
+      |-- Insert UrlAccessLog record
+      |-- Commit transaction
+      |
+      |-- If user logged in:
+      |     Fetch AppDb UserStatistics
+      |     Increment TotalClicks
+      |     Commit transaction
+      v
+[Databases]
+  - Sharded DB for URLs and UrlAccessLogs
+  - AppDb for UserStatistics
+
+  -----------------------------------------------------------------------------
+
+
+  7. The environment variable
+
+The app reads an environment variable called ==> ASPNETCORE_ENVIRONMENT
+
+Common values:
+1. "Development" → your local dev machine
+2. "Staging" → optional intermediate environment
+3. "Production" → live production server
+
+In Visual Studio, you can set it in launchSettings.json:
+"profiles": {
+  "MyApp": {
+    "commandName": "Project",
+    "environmentVariables": {
+      "ASPNETCORE_ENVIRONMENT": "Development"
+    }
+  }
+}
+
+In production (e.g., IIS, Docker, Linux), you set this environment variable in the system or container.
+
+2️. How the app reads it
+
+In Program.cs or Startup.cs:
+
+var builder = WebApplication.CreateBuilder(args);
+var env = builder.Environment; // IWebHostEnvironment
+
+Console.WriteLine(env.EnvironmentName); // Development / Production / Staging
+
+You can also check:
+
+if (builder.Environment.IsDevelopment())
+{
+    // Dev-specific services, debug middleware
+}
+else if (builder.Environment.IsProduction())
+{
+    // Prod-specific configuration
+}
+
+3️. Reading different settings from appsettings
+
+ASP.NET Core automatically loads:
+1. appsettings.json (common settings)
+2. appsettings.{Environment}.json (override for environment)
+
+Example:
+appsettings.json
+appsettings.Development.json
+appsettings.Production.json
+
+
+The system automatically picks the correct {Environment} file based on ASPNETCORE_ENVIRONMENT.
+
+builder.Configuration.GetValue<string>("BaseUrl"); 
+// reads from appsettings.Production.json if ASPNETCORE_ENVIRONMENT=Production
+✅ This is the standard way apps “know” they are in production and read production settings.
+
+---------------------------------------------------------------------------------------------
+
+8. Caching and using Redis:
+
+1- To use redis in docker --> docker run -d --name urlshortener-redis -p 6379:6379 redis:7
+
+2- What to Install in Your ASP.NET Project:
+dotnet add package StackExchange.Redis
+
+3- . Registering Redis in DI (Program.cs)
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+    var configuration = ConfigurationOptions.Parse("localhost:6379", true);
+    configuration.ResolveDns = true;
+    return ConnectionMultiplexer.Connect(configuration);
+});
+
+5. Cache-Aside Pattern (How You’ll Use It)
+For a URL shortener:
+
+Read flow:
+Try Redis first (cache.Get(shortUrl)).
+If not found → query DB → put in cache.
+
+Write flow:
+Always write to DB.
+Then update or invalidate cache.
+
+
+6. Best Eviction & Invalidation Strategy
+
+Redis supports several eviction policies. The best depends on your use case:
+
+✅ For URL Shortener:
+Eviction Policy → volatile-lru or allkeys-lru (Least Recently Used).
+Keeps most accessed URLs hot in cache.
+
+Expiration → set TTL per entry (TimeSpan.FromDays(7) for example).
+Old/unused short URLs expire naturally.
+
+🔹 Invalidation Rules (Cache-Aside)
+
+On read miss → load from DB and cache.
+On write/update → write to DB, then either:
+
+Delete old cache key (invalidate).
+Or update it with new value (write-through).
+
+7. Important Redis Functions You’ll Use
+
+From StackExchange.Redis:
+
+StringGetAsync(key) → get value.
+StringSetAsync(key, value, expiry) → set value with optional TTL.
+KeyDeleteAsync(key) → remove key.
+KeyExistsAsync(key) → check if key exists.
+
+
+8.🔹 Redis values
+
+Redis itself only stores byte[].
+When you call StringGetAsync(key), you always get a RedisValue.
+From there, you decide how to interpret it:
+
+1. If you stored a string
+await _database.StringSetAsync("A1", "Omar");
+
+var value = await _database.StringGetAsync("A1");
+string asString = value.ToString();  // "Omar"
+
+2. If you stored a number
+
+Redis still stores it as a string ("123"), but you can cast directly:
+
+await _database.StringSetAsync("A2", 123);
+
+var value = await _database.StringGetAsync("A2");
+int asInt = (int)value;              // 123
+long asLong = (long)value;           // 123
+
+3. If you stored a class/object
+
+You must serialize → store → deserialize.
+
+var person = new Person { Name = "Omar", Age = 12 };
+await _database.StringSetAsync("A3", JsonSerializer.Serialize(person));
+
+var value = await _database.StringGetAsync("A3");
+var personObj = JsonSerializer.Deserialize<Person>(value!);
+
+
+-----------------------------------------------------------------------------------------------
+
+
+10. In sending conformation Email:
+
+To send the Token in The Link :
+
+var emailToken = await userManager.GenerateEmailConfirmationTokenAsync(user);
+var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(emailToken));
+var confirmationLink = $"{baseUrl}/api/auth/confirm-email?userId={user.Id}&token={encodedToken}";
+
+Why ?
+
+🔹1. Problem with raw tokens:
+GenerateEmailConfirmationTokenAsync() produces a long string with special characters, e.g.:
+:====> ABcD+Ef/123==
+
+Characters like +, /, = can break URLs if placed directly in query strings.
+Browsers or HTTP clients might misinterpret or truncate the token.
+
+🔹 2. Base64 URL-safe encoding
+
+WebEncoders.Base64UrlEncode() converts the token into a URL-safe format, replacing problematic characters:
++ → -
+/ → _
+
+Removes padding =
+Example:
+Original token: ABcD+Ef/123==
+Encoded token: ABcD-Ef_123
+
+3. Decoding before confirmation
+
+On the API side, you need the original token to validate with Identity:
+var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+
+-------------------------------------------------------------------------------------------------
+
+
+11.
+
+1️--> HttpContext vs IHttpContextAccessor:
+
+HttpContext
+
+1. Represents the current HTTP request/response context.
+2. Properties: Request, Response, User, Items, etc.
+3. Available only inside a controller, middleware, or razor page, i.e., when a request is being processed.
+4. You cannot inject HttpContext into services or handlers because they might run outside of an HTTP request (e.g., background tasks).
+
+// Only works in controller/middleware:
+var userId = HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+2--> IHttpContextAccessor
+
+1. Service provided by ASP.NET Core to access the current HttpContext anywhere via DI.
+2. Provides property: HttpContext HttpContext { get; }.
+3. Safe to inject into services, handlers, or background classes (as long as they are executing during a request).
+
+Behind the scenes, it keeps a reference to the current request’s HttpContext using AsyncLocal,
+so it works across async calls in the same request.
+
+public class UserContextService : IUserContextService
+{
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
+    public string GetCurrentUserId()
+    {
+        // Access HttpContext from the accessor
+        return _httpContextAccessor.HttpContext?.User
+               .FindFirstValue(ClaimTypes.NameIdentifier) 
+               ?? throw new UnauthorizedAccessException();
+    }
+}
+
+--->:: Why you cannot inject HttpContext directly
+1. DI in ASP.NET Core cannot provide a HttpContext because it’s per-request, not singleton or scoped.
+2. HttpContext changes every request → DI would break lifetime rules.
+3. IHttpContextAccessor solves this by being singleton-scoped but internally points to the current request’s HttpContext.
+
+3️⃣ How to wire it up correctly
+// In Infrastructure/Dependencies/ServiceRegistration.cs
+services.AddHttpContextAccessor();
+services.AddScoped<IUserContextService, UserContextService>();
+
+
+AddHttpContextAccessor() → registers IHttpContextAccessor singleton.
+Your handler/service can now inject IUserContextService safely.
+
+---------------------------------------------------------------------------------------------
+
+
+13. Important Note for Sequential and parllerl Db queries:
+
+var totalActiveUrls = 0;
+
+foreach (var uow in unitOfWorks)
+{
+    var repository = uow.GetRepository<Url, long>();
+    totalActiveUrls += await repository.CountAsync(
+        u => u.UserId == userId && u.ExpiresAt > DateTime.UtcNow
+    );
+}
+You go to shard 1, run CountAsync → wait for DB result.
+Then go to shard 2, run CountAsync → wait again.
+Then go to shard 3, run CountAsync → wait again.
+⏳ This is sequential: each shard query waits for the previous one to finish.
+
+Now the optimized version:
+
+var tasks = unitOfWorks.Select(uow =>
+{
+    var repo = uow.GetRepository<Url, long>();
+    return repo.CountAsync(u => u.UserId == userId && u.ExpiresAt > DateTime.UtcNow);
+});
+
+var results = await Task.WhenAll(tasks);
+var totalActiveUrls = results.Sum();
+
+What happens here
+
+unitOfWorks.Select(...)
+→ For each shard, create a Task<long> representing the CountAsync call, but don’t await it yet.
+So you now have something like:
+Task<long> for shard 1
+Task<long> for shard 2
+Task<long> for shard 3
+
+Task.WhenAll(tasks)
+→ Starts all these tasks in parallel.
+→ It returns when all shard queries have completed.
+→ Meanwhile, the DB queries are happening concurrently.
+
+results
+→ An array of results from each shard (like [12, 8, 20]).
+
+results.Sum()
+→ Add them up to get totalActiveUrls.
+
+--------------------------------------------------------------------------------------
+
+
+14. Named Argumets in C#
+
+
+(predicate: u => u.UserId == userId,
+            sort: u => u.ClickCount,
+            selector: u => new TopUrlDto
+            {
+                ShortUrl = u.ShortUrl,
+                OriginalUrl = u.OriginalUrl,
+                Clicks = u.ClickCount,
+                CreatedAt = u.CreatedAt
+            },
+            take: request.Count,
+            skip: null,
+            ascending: false, 
+            cancellationToken: cancellationToken)
+
+--> when there are many parameters or some are optional, you can use named arguments to make 
+    it clear which value corresponds to which parameter:
+
+✅ Advantages of named arguments:
+1. Readability – you know exactly what each argument means.
+2. Optional parameters – you can skip some optional arguments and only provide the ones you care about.
+3. No positional mistakes – you don’t accidentally pass skip where take is expected.

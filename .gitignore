@@ -1,0 +1,44 @@
+# Build results
+bin/
+obj/
+out/
+*.exe
+*.dll
+*.log
+*.vspscc
+*.user
+*.suo
+*.pdb
+
+# Visual Studio
+.vs/
+*.userosscache
+*.sln.docstates
+
+# Packages
+*.nupkg
+*.snupkg
+packages/
+*.nuget.props
+*.nuget.targets
+
+# Cache
+*.dbmdl
+*.bak
+*.ldf
+*.mdf
+
+# Publish
+publish/
+dist/
+wwwroot/dist/
+node_modules/
+
+# Secrets
+appsettings.Development.json
+appsettings.Local.json
+*.secret.json
+
+# Others
+.idea/
+*.swp
