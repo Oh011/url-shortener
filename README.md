@@ -82,13 +82,19 @@ Each record ≈ 200 bytes (including indexing).
 
 This project demonstrates how the above design is realized in a real system using **.NET 8 + Clean Architecture + CQRS + MediatR**.  
 
+It is a **simplified version** of the large-scale design:  
+- No **API Gateway** or **external load balancer**.  
+- No **Kafka** or distributed queue (handled instead using **Domain Events** + **Background Jobs** to simulate async processing).  
+- Scaled down to run locally with Dockerized PostgreSQL shards + Redis.  
+
 ### 🔑 Key Features Implemented  
 - **Sharding with PostgreSQL** → Simulated using Docker containers.  
 - **Consistent Hashing** → Distributes URLs across shards.  
 - **Collision Handling** → Base62 encoding + XOR ensures unique short codes.  
 - **Cache-Aside Pattern** → Redis cache to reduce DB load on redirects.  
 - **Domain Events** → Handle async updates (e.g., analytics, user stats).  
-- **Background Jobs (Hangfire)** → Retry-safe analytics/statistics updates.  
+- **Rate Limiting** → Implemented with **Token Bucket Algorithm** to prevent abuse.  
+- **Domain Events + Background Jobs (Hangfire)** → Replaces Kafka for async tasks (analytics, retries, updates).    
 - **Global Error Handling** → Standardized API error responses.  
 - **Authentication & Authorization** → JWT + refresh tokens.  
 - **Analytics Module** → Tracks clicks, top URLs, summaries per user.  
