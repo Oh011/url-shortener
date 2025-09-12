@@ -90,11 +90,10 @@ It is a **simplified version** of the large-scale design:
 ### 🔑 Key Features Implemented  
 - **Sharding with PostgreSQL** → Simulated using Docker containers.  
 - **Consistent Hashing** → Distributes URLs across shards.  
-- **Collision Handling** → Base62 encoding + XOR ensures unique short codes.  
-- **Cache-Aside Pattern** → Redis cache to reduce DB load on redirects.  
-- **Domain Events** → Handle async updates (e.g., analytics, user stats).  
+- **Short Code Generation** → Base62 encoding + XOR with a secret key to ensure unique and non-sequential short codes, preventing predictability. 
+- **Cache-Aside Pattern** → Redis cache to reduce DB load on redirects.    
 - **Rate Limiting** → Implemented with **Token Bucket Algorithm** to prevent abuse.  
-- **Domain Events + Background Jobs (Hangfire)** → Replaces Kafka for async tasks (analytics, retries, updates).    
+- **Domain Events (MediatR) + Background Jobs (Hangfire)** → Decouples workflows. When a new URL is created, a UrlCreated domain event triggers asynchronous tasks such as updating user statistics and recording analytics.   
 - **Global Error Handling** → Standardized API error responses.  
 - **Authentication & Authorization** → JWT + refresh tokens.  
 - **Analytics Module** → Tracks clicks, top URLs, summaries per user.  

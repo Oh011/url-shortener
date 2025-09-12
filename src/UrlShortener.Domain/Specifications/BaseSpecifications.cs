@@ -10,18 +10,9 @@ namespace Project.Domain.Specifications
         public List<Expression<Func<T, object>>> IncludeExpressions { get; } = new();
 
 
-
-
-
-
-
         public Expression<Func<T, object>>? OrderBy { get; set; }
 
         public Expression<Func<T, object>>? OrderByDescending { get; set; }
-
-
-
-
 
         public int Take { get; set; }
 
@@ -30,8 +21,6 @@ namespace Project.Domain.Specifications
         public bool isPaginated { get; set; } = false;
 
         public bool IgnoreQueryFilters { get; set; } = true;
-
-
 
 
 
