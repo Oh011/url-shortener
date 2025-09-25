@@ -1,5 +1,6 @@
 ﻿using Project.Application.Common.Interfaces;
 using Shared.Options;
+using System.Security.Cryptography;
 
 namespace Project.Infrastructure.Persistence
 {
@@ -74,11 +75,13 @@ namespace Project.Infrastructure.Persistence
 
         private int Hash(string input)
         {
-            using var md5 = System.Security.Cryptography.MD5.Create();
+            using var md5 = MD5.Create();
             byte[] hashBytes = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
             uint value = BitConverter.ToUInt32(hashBytes, 0); //--> takes first 4 bytes
             return (int)(value & 0x7FFFFFFF);
         }
+
+
 
 
     }
