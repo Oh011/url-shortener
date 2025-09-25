@@ -65,16 +65,16 @@ Each record ≈ 200 bytes (including indexing).
 ---
 
 ### 4. High-Level Design (HLD)  
-![HLD Diagram](images/UrlShortener_HLD.drawio.png)  
+![HLD Diagram](images/UrlShortener_HLD.png)  
 
 ---
 
 ### 5. Sequence Diagrams  
 - Shortening a URL (Write Path)  
-![Sequence - Shorten](images/UrlShortener_SequenceDigram(Post).drawio.png)  
+![Sequence - Shorten](images/UrlShortener_SequenceDigram(Get))  
 
 - Redirecting a URL (Read Path)  
-![Sequence - Redirect](images/UrlShortener_SequenceDigram(Get).drawio.png)  
+![Sequence - Redirect](images/UrlShortener_SequenceDigram(Post))  
 
 ---
 
