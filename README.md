@@ -99,6 +99,89 @@ It is a **simplified version** of the large-scale design:
 - **Analytics Module** → Tracks clicks, top URLs, summaries per user.  
 
 ---
+## ⚙️ Requirements & Setup
+
+### ✅ Requirements
+Make sure you have the following installed:
+
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)  
+- [SQL Server](https://www.microsoft.com/en-us/sql-server/sql-server-downloads) (for main DB)  
+- [PostgreSQL](https://www.postgresql.org/) (running in Docker for sharding)  
+- [Redis](https://redis.io/) (running in Docker for caching)  
+- [Visual Studio 2022](https://visualstudio.microsoft.com/) or [Visual Studio Code](https://code.visualstudio.com/)  
+- [Docker Desktop](https://www.docker.com/products/docker-desktop)  
+
+
+
+
+### 🚀 Setup Steps
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/Url-Shortener.git
+   cd Url-Shortener
+   ```
+
+2. Run PostgreSQL shards in Docker
+You need 3 shard containers running on different ports:
+ ```bash
+ docker run --name shard1 -e POSTGRES_USER=admin -e POSTGRES_PASSWORD=admin -e POSTGRES_DB=Urls -p 5435:5432 -d postgres:15
+docker run --name shard2 -e POSTGRES_USER=admin -e POSTGRES_PASSWORD=admin -e POSTGRES_DB=Urls -p 5434:5432 -d postgres:15
+docker run --name shard3 -e POSTGRES_USER=admin -e POSTGRES_PASSWORD=admin -e POSTGRES_DB=Urls -p 5433:5432 -d postgres:15
+```
+
+3. Run Redis in Docker
+ ```bash
+docker run --name redis -p 6379:6379 -d redis
+```
+
+
+4. Configure appsettings.json
+Update src/UrlShortener.Api/appsettings.json with your own values:
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnectionString": "Server=.;Database=UrlShortener;Integrated Security=True;TrustServerCertificate=True;MultipleActiveResultSets=True",
+    "Redis": "localhost:6379,abortConnect=false"
+  },
+  "Shards": [
+    { "Name": "shard1", "ConnectionString": "Host=localhost;Port=5435;Username=admin;Password=admin;Database=Urls" },
+    { "Name": "shard2", "ConnectionString": "Host=localhost;Port=5434;Username=admin;Password=admin;Database=Urls" },
+    { "Name": "shard3", "ConnectionString": "Host=localhost;Port=5433;Username=admin;Password=admin;Database=Urls" }
+  ],
+  "JwtOptions": {
+    "Issuer": "https://localhost:7084",
+    "Audience": "Audience",
+    "SecretKey": "your-super-secret-key",
+    "ExpirationInHours": "1"
+  },
+  "SmtpOptions": {
+    "Host": "smtp.gmail.com",
+    "Port": 587,
+    "UserName": "your-email@gmail.com",
+    "Password": "your-email-password",
+    "EnableSsl": true
+  },
+  "Shortener": {
+    "SecretKey": 998,
+    "BaseUrl": "https://localhost:7084"
+  }
+}
+
+
+```
+5. Apply EF Core migrations for the main SQL Server database
+```bash
+dotnet ef database update --project src/UrlShortener.Infrastructure --startup-project src/UrlSh
+```
+
+6. Run the API
+```bash
+cd src/UrlShortener.Api
+dotnet run
+```
+
+---
 
 ## 🚀 Endpoints  
 
