@@ -98,6 +98,17 @@ It is a **simplified version** of the large-scale design:
 - **Authentication & Authorization** → JWT + refresh tokens.  
 - **Analytics Module** → Tracks clicks, top URLs, summaries per user.  
 
+
+---
+
+## 🛠️ Tech Stack  
+- **Backend**: ASP.NET Core 8, EF Core  
+- **Database**: SQL Server (main), PostgreSQL (shards)  
+- **Caching**: Redis   
+- **Background Jobs**: Hangfire   
+- **Architecture**: Clean Architecture, CQRS, Domain Events, Cache-Aside Pattern
+
+
 ---
 ## ⚙️ Requirements & Setup
 
