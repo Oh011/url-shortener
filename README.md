@@ -122,21 +122,23 @@ Make sure you have the following installed:
    cd Url-Shortener
    ```
 
-2. Run PostgreSQL shards in Docker
-You need 3 shard containers running on different ports:
- ```bash
- docker run --name shard1 -e POSTGRES_USER=admin -e POSTGRES_PASSWORD=admin -e POSTGRES_DB=Urls -p 5435:5432 -d postgres:15
+2. **Run PostgreSQL shards in Docker**  
+You need 3 shard containers running on different ports:  
+```bash
+docker run --name shard1 -e POSTGRES_USER=admin -e POSTGRES_PASSWORD=admin -e POSTGRES_DB=Urls -p 5435:5432 -d postgres:15
 docker run --name shard2 -e POSTGRES_USER=admin -e POSTGRES_PASSWORD=admin -e POSTGRES_DB=Urls -p 5434:5432 -d postgres:15
 docker run --name shard3 -e POSTGRES_USER=admin -e POSTGRES_PASSWORD=admin -e POSTGRES_DB=Urls -p 5433:5432 -d postgres:15
 ```
 
-3. Run Redis in Docker
- ```bash
+3. **Run Redis in Docker**  
+Start a Redis container to be used for caching:  
+```bash
 docker run --name redis -p 6379:6379 -d redis
+
 ```
 
 
-4. Configure appsettings.json
+4. **Configure appsettings.json**
 Update src/UrlShortener.Api/appsettings.json with your own values:
 ```json
 {
@@ -170,12 +172,13 @@ Update src/UrlShortener.Api/appsettings.json with your own values:
 
 
 ```
-5. Apply EF Core migrations for the main SQL Server database
+5. **Apply EF Core migrations for the main SQL Server database**
 ```bash
-dotnet ef database update --project src/UrlShortener.Infrastructure --startup-project src/UrlSh
+dotnet ef database update --project src/UrlShortener.Infrastructure --startup-project src/UrlShortener.Api
+
 ```
 
-6. Run the API
+6. **Run the API**
 ```bash
 cd src/UrlShortener.Api
 dotnet run
