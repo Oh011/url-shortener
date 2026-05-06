@@ -10,6 +10,11 @@ out/
 *.suo
 *.pdb
 
+
+appsettings*.json
+ProjectNotes.txt
+.dockerignore
+
 # Visual Studio
 .vs/
 *.userosscache

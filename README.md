@@ -90,7 +90,7 @@ It is a **simplified version** of the large-scale design:
 ### 🔑 Key Features Implemented  
 - **Sharding with PostgreSQL** → Simulated using Docker containers.  
 - **Consistent Hashing** → Distributes URLs across shards.  
-- **Short Code Generation** → Base62 encoding + XOR with a secret key to ensure unique and non-sequential short codes, preventing predictability. 
+- **Short Code Generation** → Secure random 42-bit Base62-encoded identifiers (7 characters), ensuring non-sequential and hard-to-predict URLs, with uniqueness enforced at the database level. 
 - **Cache-Aside Pattern** → Redis cache to reduce DB load on redirects.    
 - **Rate Limiting** → Implemented with **Token Bucket Algorithm** to prevent abuse.  
 - **Domain Events (MediatR) + Background Jobs (Hangfire)** → Decouples workflows. When a new URL is created, a UrlCreated domain event triggers asynchronous tasks such as updating user statistics and recording analytics.   
