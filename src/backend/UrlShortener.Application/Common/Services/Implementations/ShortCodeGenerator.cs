@@ -10,23 +10,28 @@ using UrlShortener.Application.Common.Interfaces;
 namespace UrlShortener.Application.Common.Services.Implementations
 {
 
-  
+
 
     public class ShortCodeGenerator : IShortCodeGenerator
     {
-        private const int Size = 7;
         private const string Alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        private const int Size = 7;
 
         public string Generate()
         {
-            Span<byte> buffer = stackalloc byte[8];
+            Span<char> result = stackalloc char[Size];
+            Span<byte> buffer = stackalloc byte[Size];
+
             RandomNumberGenerator.Fill(buffer);
 
-            ulong value = BitConverter.ToUInt64(buffer) & ((1UL << 42) - 1);
+            for (int i = 0; i < Size; i++)
+            {
+                result[i] = Alphabet[buffer[i] % Alphabet.Length];
+            }
 
-            var code = Base62.Encode((long)value);
-
-            return code.PadLeft(Size, '0');
+            return new string(result);
         }
     }
+
+
 }

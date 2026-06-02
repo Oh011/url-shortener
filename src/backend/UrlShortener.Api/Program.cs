@@ -1,10 +1,11 @@
 using Microsoft.OpenApi.Models;
-using UrlShortener.Application.DependencyInjection;
-using UrlShortener.Infrastructure.DependencyInjection;
+using Scalar.AspNetCore;
 using Shared.Options;
 using System.Reflection;
 using Url_Shortener.Extensions;
 using Url_Shortener.Middlewares;
+using UrlShortener.Application.DependencyInjection;
+using UrlShortener.Infrastructure.DependencyInjection;
 
 namespace Url_Shortener
 {
@@ -19,10 +20,11 @@ namespace Url_Shortener
 
 
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
-
+        
 
             builder.Services.AddPresentationServices();
+
+            builder.Services.AddApplication();
 
             builder.Services.AddInfrastructure(builder
                 .Configuration);
@@ -30,8 +32,8 @@ namespace Url_Shortener
 
             builder.Services.AddCustomRateLimiting();
 
-            builder.Services.AddApplication();
 
+   
 
 
             builder.Services.Configure<ShortenerOptions>(builder.Configuration.GetSection("shortener"));
@@ -73,11 +75,6 @@ namespace Url_Shortener
             });
 
 
-            //var shards = builder.Configuration.GetSection("Shards").Get<List<ShardInfo>>() ?? new List<ShardInfo>();
-
-            //// Run migrations on all shards (synchronously)
-            //var migrationRunner = new ShardMigrationRunner(shards);
-            //migrationRunner.MigrateAllShards();
 
             var app = builder.Build();
 
@@ -87,19 +84,37 @@ namespace Url_Shortener
             app.UseMiddleware<GlobalErrorHandlingMiddleware>();
 
 
-            if (app.Environment.IsDevelopment())
+            if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
             {
                 app.UseSwagger();
-                app.UseSwaggerUI();
+                app.UseSwaggerUI(c =>
+                {
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Url Shortener API V1");
+                    c.RoutePrefix = "swagger";
+                });
+
+                //app.MapScalarApiReference(options =>
+                //{
+                //    options.WithOpenApiRoutePattern("/swagger/{documentName}/swagger.json");
+                //});
 
             }
 
-            if (app.Environment.IsProduction())
+
+
+
+            app.Use(async (ctx, next) =>
             {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-                app.MapGet("/", () => Results.Redirect("/swagger"));
-            }
+                if (ctx.Request.Path == "/")
+                {
+                    ctx.Response.Redirect("/swagger");
+                    return;
+                }
+
+                await next();
+            });
+
+
             await app.SeedDbAsync();
 
             app.UseRateLimiter();

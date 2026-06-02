@@ -45,13 +45,13 @@ namespace UrlShortener.Application.Features.Urls.Handlers.Commands
         {
 
 
-            long nextId = await uniqueIdGenerator.GetNextId();
+            //long nextId = await uniqueIdGenerator.GetNextId();
 
             var userId = userContextService.GetCurrentUserId();
 
             var url = new Url
             {
-                Id = nextId,
+        
                 OriginalUrl = request.LongUrl,
                 UserId = userId,
 
@@ -118,7 +118,7 @@ namespace UrlShortener.Application.Features.Urls.Handlers.Commands
             }
 
             await _mediator.Publish(new DomainEventNotifications<UrlCreatedEvent>
-                (new UrlCreatedEvent(nextId, userId, url.ShortUrl, url.OriginalUrl, url.ExpiresAt))
+                (new UrlCreatedEvent(url.Id, userId, url.ShortUrl, url.OriginalUrl, url.ExpiresAt))
 
                 );
 
